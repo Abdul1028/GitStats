@@ -9,6 +9,7 @@ import org.gitstats.backend.dto.GitHubRepoDTO;
 import org.gitstats.backend.dto.GitHubUserDTO;
 import org.gitstats.backend.service.GitHubService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.core.user.OAuth2User;
@@ -39,6 +40,64 @@ public class UserController {
             return ResponseEntity.ok(userDetails);
         } else {
             return ResponseEntity.noContent().build();
+        }
+    }
+
+    @GetMapping("/user/repos")
+    public ResponseEntity<?> getAuthenticatedUserRepos(@AuthenticationPrincipal OAuth2User principal) {
+        if (principal == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("User not authenticated");
+        }
+        try {
+            List<GitHubRepoDTO> repos = gitHubService.getAuthenticatedUserRepos();
+            return ResponseEntity.ok(repos);
+        } catch (RuntimeException e) {
+            System.err.println("Error fetching authenticated repos: " + e.getMessage());
+            return ResponseEntity.status(500).body("Error fetching repository data: " + e.getMessage());
+        }
+    }
+
+    @GetMapping("/user/languages")
+    public ResponseEntity<?> getAuthenticatedUserLanguages(@AuthenticationPrincipal OAuth2User principal) {
+        if (principal == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("User not authenticated");
+        }
+        try {
+            List<GitHubRepoDTO> repos = gitHubService.getAuthenticatedUserRepos();
+            Map<String, Long> languageStats = gitHubService.calculateLanguageStats(repos);
+            return ResponseEntity.ok(languageStats);
+        } catch (RuntimeException e) {
+            System.err.println("Error fetching authenticated languages: " + e.getMessage());
+            return ResponseEntity.status(500).body("Error fetching language data: " + e.getMessage());
+        }
+    }
+
+    @GetMapping("/user/events")
+    public ResponseEntity<?> getAuthenticatedUserEvents(@AuthenticationPrincipal OAuth2User principal) {
+        if (principal == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("User not authenticated");
+        }
+        try {
+            List<GitHubEventDTO> events = gitHubService.getAuthenticatedUserEvents();
+            return ResponseEntity.ok(events);
+        } catch (RuntimeException e) {
+            System.err.println("Error fetching authenticated events: " + e.getMessage());
+            return ResponseEntity.status(500).body("Error fetching event data: " + e.getMessage());
+        }
+    }
+
+    @GetMapping("/user/contributions")
+    public ResponseEntity<?> getAuthenticatedUserContributions(@AuthenticationPrincipal OAuth2User principal) {
+        if (principal == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("User not authenticated");
+        }
+        try {
+            Object contributionData = gitHubService.getContributionData();
+            // We might need to map this Object to a specific DTO later
+            return ResponseEntity.ok(contributionData);
+        } catch (RuntimeException e) {
+            System.err.println("Error fetching contribution data: " + e.getMessage());
+            return ResponseEntity.status(500).body("Error fetching contribution data: " + e.getMessage());
         }
     }
 
