@@ -1,5 +1,7 @@
 package org.gitstats.backend.dto;
 
+import java.time.OffsetDateTime;
+
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 import lombok.Data;
@@ -22,5 +24,12 @@ public class GitHubRepoDTO {
 
     private String language; // Primary language
 
-    // Add other fields if needed, e.g., created_at, updated_at
+    @JsonProperty("created_at")
+    private OffsetDateTime createdAt;
+
+    // Add other fields if needed, e.g., updated_at, pushed_at
+    // @JsonProperty("updated_at")
+    // private OffsetDateTime updatedAt;
+    // @JsonProperty("pushed_at")
+    // private OffsetDateTime pushedAt;
 } 

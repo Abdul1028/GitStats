@@ -1,13 +1,17 @@
 package org.gitstats.backend.controller;
 
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import org.gitstats.backend.dto.GitHubEventDTO;
 import org.gitstats.backend.dto.GitHubRepoDTO;
 import org.gitstats.backend.dto.GitHubUserDTO;
 import org.gitstats.backend.service.GitHubService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.oauth2.core.user.OAuth2User;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -15,7 +19,7 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.client.HttpClientErrorException;
 
 @RestController
-@RequestMapping("/api/users")
+@RequestMapping("/api")
 public class UserController {
 
     private final GitHubService gitHubService;
@@ -25,7 +29,20 @@ public class UserController {
         this.gitHubService = gitHubService;
     }
 
-    @GetMapping("/{username}")
+    @GetMapping("/user/me")
+    public ResponseEntity<?> getCurrentUser(@AuthenticationPrincipal OAuth2User principal) {
+        if (principal != null) {
+            Map<String, Object> userDetails = new HashMap<>();
+            userDetails.put("login", principal.getAttribute("login"));
+            userDetails.put("name", principal.getAttribute("name"));
+            userDetails.put("avatarUrl", principal.getAttribute("avatar_url"));
+            return ResponseEntity.ok(userDetails);
+        } else {
+            return ResponseEntity.noContent().build();
+        }
+    }
+
+    @GetMapping("/users/{username}")
     public ResponseEntity<?> getPublicUserInfo(@PathVariable String username) {
         try {
             GitHubUserDTO userInfo = gitHubService.getPublicUserInfo(username);
@@ -38,7 +55,7 @@ public class UserController {
         }
     }
 
-    @GetMapping("/{username}/repos")
+    @GetMapping("/users/{username}/repos")
     public ResponseEntity<?> getPublicRepos(@PathVariable String username) {
         try {
             List<GitHubRepoDTO> repos = gitHubService.getPublicRepos(username);
@@ -52,7 +69,7 @@ public class UserController {
         }
     }
 
-    @GetMapping("/{username}/languages")
+    @GetMapping("/users/{username}/languages")
     public ResponseEntity<?> getLanguageStats(@PathVariable String username) {
         try {
             Map<String, Long> languageStats = gitHubService.getLanguageStats(username);
@@ -62,6 +79,19 @@ public class UserController {
         } catch (RuntimeException e) {
             // Log the exception details
             return ResponseEntity.status(500).body("Error fetching language data from GitHub: " + e.getMessage());
+        }
+    }
+
+    @GetMapping("/users/{username}/events")
+    public ResponseEntity<?> getPublicEvents(@PathVariable String username) {
+        try {
+            List<GitHubEventDTO> events = gitHubService.getPublicEvents(username);
+            return ResponseEntity.ok(events);
+        } catch (HttpClientErrorException.NotFound e) {
+            return ResponseEntity.status(404).body("GitHub user not found: " + username);
+        } catch (RuntimeException e) {
+            // Log the exception details
+            return ResponseEntity.status(500).body("Error fetching event data from GitHub: " + e.getMessage());
         }
     }
 

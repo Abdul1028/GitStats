@@ -2,6 +2,7 @@ package org.gitstats.backend.service;
 
 import org.gitstats.backend.dto.GitHubUserDTO;
 import org.gitstats.backend.dto.GitHubRepoDTO;
+import org.gitstats.backend.dto.GitHubEventDTO;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClient;
@@ -55,6 +56,22 @@ public class GitHubService {
         } catch (Exception e) {
             System.err.println("Error fetching repos for " + username + ": " + e.getMessage());
             throw new RuntimeException("Failed to fetch repos from GitHub", e);
+        }
+    }
+
+    public List<GitHubEventDTO> getPublicEvents(String username) {
+        // API defaults to 30 events, max 100 per page
+        String url = githubApiBaseUrl + "/users/" + username + "/events/public?per_page=100";
+        try {
+            List<GitHubEventDTO> events = restClient.get()
+                    .uri(url)
+                    .retrieve()
+                    .body(new ParameterizedTypeReference<List<GitHubEventDTO>>() {});
+            return events != null ? events : List.of();
+        } catch (Exception e) {
+            System.err.println("Error fetching public events for " + username + ": " + e.getMessage());
+            // Consider logging and returning empty list or throwing
+            throw new RuntimeException("Failed to fetch public events from GitHub", e);
         }
     }
 
