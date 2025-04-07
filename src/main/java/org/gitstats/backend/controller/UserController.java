@@ -1,6 +1,5 @@
 package org.gitstats.backend.controller;
 
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -33,13 +32,24 @@ public class UserController {
     @GetMapping("/user/me")
     public ResponseEntity<?> getCurrentUser(@AuthenticationPrincipal OAuth2User principal) {
         if (principal != null) {
-            Map<String, Object> userDetails = new HashMap<>();
-            userDetails.put("login", principal.getAttribute("login"));
-            userDetails.put("name", principal.getAttribute("name"));
-            userDetails.put("avatarUrl", principal.getAttribute("avatar_url"));
-            return ResponseEntity.ok(userDetails);
+            String login = principal.getAttribute("login");
+            if (login == null) {
+                 return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Could not extract login from principal");
+            }
+            try {
+                // Fetch full user details using the GitHubService
+                GitHubUserDTO userInfo = gitHubService.getPublicUserInfo(login);
+                return ResponseEntity.ok(userInfo);
+            } catch (HttpClientErrorException.NotFound e) {
+                // Handle case where user might not be found via public API despite being authenticated
+                return ResponseEntity.status(HttpStatus.NOT_FOUND).body("GitHub user details not found for: " + login);
+            } catch (RuntimeException e) {
+                System.err.println("Error fetching authenticated user details: " + e.getMessage());
+                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Error fetching user data: " + e.getMessage());
+            }
         } else {
-            return ResponseEntity.noContent().build();
+            // Consider returning UNAUTHORIZED if principal is null, though SecurityConfig might handle this
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("User not authenticated");
         }
     }
 
