@@ -1,5 +1,6 @@
 package org.gitstats.backend.config;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
@@ -14,6 +15,9 @@ import org.springframework.security.web.authentication.HttpStatusEntryPoint;
 @Configuration
 @EnableWebSecurity
 public class SecurityConfig {
+
+    @Value("${app.frontend.url}")
+    private String frontendUrl;
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
@@ -45,15 +49,15 @@ public class SecurityConfig {
             // Replace formLogin with oauth2Login
             // .formLogin(withDefaults());
             .oauth2Login(oauth2 -> oauth2
-                // Always redirect to the frontend app root on successful login
-                .defaultSuccessUrl("http://localhost:3000", true) 
+                // Always redirect to the configured frontend app root on successful login
+                .defaultSuccessUrl(frontendUrl, true)
                 // We could add custom failure handler later if needed
                 // .failureUrl("/login?error")
             )
             // --- Refined Logout Configuration --- 
             .logout(logout -> logout
                  // Specify the URL to redirect to after logout
-                .logoutSuccessUrl("http://localhost:3000") 
+                .logoutSuccessUrl(frontendUrl)
                  // Invalidate session and clear authentication on logout
                 .invalidateHttpSession(true)
                 .clearAuthentication(true)
