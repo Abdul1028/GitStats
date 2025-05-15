@@ -14,6 +14,8 @@ import org.springframework.security.web.authentication.HttpStatusEntryPoint;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.oauth2.client.web.HttpSessionOAuth2AuthorizationRequestRepository;
 import org.springframework.security.web.util.matcher.AntPathRequestMatcher;
+import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
+import org.springframework.security.web.savedrequest.HttpSessionRequestCache;
 
 @Configuration
 @EnableWebSecurity
@@ -27,8 +29,11 @@ public class SecurityConfig {
         http
             // Enable CORS configured in WebConfig
             .cors(withDefaults())
-            // Disable CSRF for stateless APIs
-            .csrf(AbstractHttpConfigurer::disable)
+            // Configure CSRF with cookie-based token repository
+            .csrf(csrf -> csrf
+                .csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse())
+                .ignoringRequestMatchers("/api/health-check")
+            )
             .authorizeHttpRequests(authorize -> authorize
                 // Allow unauthenticated GET requests to public data endpoints
                 .requestMatchers(HttpMethod.GET,
@@ -67,13 +72,17 @@ public class SecurityConfig {
                 .maximumSessions(1)
                 .expiredUrl(frontendUrl)
             )
+            // Configure request cache
+            .requestCache(cache -> cache
+                .requestCache(new HttpSessionRequestCache())
+            )
             // Configure logout
             .logout(logout -> logout
                 .logoutRequestMatcher(new AntPathRequestMatcher("/api/logout"))
                 .logoutSuccessUrl(frontendUrl)
                 .invalidateHttpSession(true)
                 .clearAuthentication(true)
-                .deleteCookies("JSESSIONID")
+                .deleteCookies("JSESSIONID", "XSRF-TOKEN")
                 .permitAll()
             );
 
