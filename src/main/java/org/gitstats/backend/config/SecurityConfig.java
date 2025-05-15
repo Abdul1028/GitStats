@@ -13,6 +13,7 @@ import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.HttpStatusEntryPoint;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.oauth2.client.web.HttpSessionOAuth2AuthorizationRequestRepository;
+import org.springframework.security.web.util.matcher.AntPathRequestMatcher;
 
 @Configuration
 @EnableWebSecurity
@@ -26,7 +27,7 @@ public class SecurityConfig {
         http
             // Enable CORS configured in WebConfig
             .cors(withDefaults())
-            // Disable CSRF for stateless APIs (if applicable, adjust if using sessions)
+            // Disable CSRF for stateless APIs
             .csrf(AbstractHttpConfigurer::disable)
             .authorizeHttpRequests(authorize -> authorize
                 // Allow unauthenticated GET requests to public data endpoints
@@ -35,9 +36,11 @@ public class SecurityConfig {
                     "/api/users/{username}",
                     "/api/users/{username}/repos",
                     "/api/users/{username}/languages",
-                    "/api/users/{username}/events"
+                    "/api/users/{username}/events",
+                    "/login/oauth2/code/github",
+                    "/oauth2/authorization/github"
                 ).permitAll()
-                 // Allow unauthenticated OPTIONS requests (used for CORS preflight)
+                // Allow unauthenticated OPTIONS requests (used for CORS preflight)
                 .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                 // Authenticated user endpoint
                 .requestMatchers("/api/user/me").authenticated()
@@ -46,37 +49,32 @@ public class SecurityConfig {
             )
             // Configure exception handling for authentication
             .exceptionHandling(exceptions -> exceptions
-                // For unauthenticated requests, return 401 Unauthorized instead of redirecting
                 .authenticationEntryPoint(new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED))
             )
-            // Replace formLogin with oauth2Login
-            // .formLogin(withDefaults());
             .oauth2Login(oauth2 -> oauth2
-                // Always redirect to the configured frontend app root on successful login
-                .defaultSuccessUrl(frontendUrl, true)
-                // Add login page configuration
-                .loginPage("/oauth2/authorization/github")
-                // Add authorization request repository for storing the authorization request
                 .authorizationEndpoint(authorization -> authorization
+                    .baseUri("/oauth2/authorization")
                     .authorizationRequestRepository(new HttpSessionOAuth2AuthorizationRequestRepository())
                 )
+                .redirectionEndpoint(redirection -> redirection
+                    .baseUri("/login/oauth2/code/*")
+                )
+                .defaultSuccessUrl(frontendUrl, true)
             )
-            // Add session management
+            // Configure session management
             .sessionManagement(session -> session
-                .sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED)
+                .sessionCreationPolicy(SessionCreationPolicy.ALWAYS)
                 .maximumSessions(1)
+                .expiredUrl(frontendUrl)
             )
-            // --- Refined Logout Configuration --- 
+            // Configure logout
             .logout(logout -> logout
-                 // Specify the URL to redirect to after logout
+                .logoutRequestMatcher(new AntPathRequestMatcher("/api/logout"))
                 .logoutSuccessUrl(frontendUrl)
-                 // Invalidate session and clear authentication on logout
                 .invalidateHttpSession(true)
                 .clearAuthentication(true)
-                 // Delete cookies on logout
-                .deleteCookies("JSESSIONID") 
-                // Explicitly permit all access to the default /logout URL (GET or POST)
-                .permitAll() 
+                .deleteCookies("JSESSIONID")
+                .permitAll()
             );
 
         return http.build();

@@ -17,12 +17,13 @@ public class WebConfig {
         return new WebMvcConfigurer() {
             @Override
             public void addCorsMappings(CorsRegistry registry) {
-                // Allow requests from the configured frontend origin
-                registry.addMapping("/api/**") // Apply CORS to API endpoints
-                        .allowedOrigins(allowedOrigins) // Use the injected property
-                        .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS") // Allowed HTTP methods
-                        .allowedHeaders("*") // Allow all headers
-                        .allowCredentials(true);
+                registry.addMapping("/**")  // Apply CORS to all endpoints
+                        .allowedOrigins(allowedOrigins)
+                        .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS")
+                        .allowedHeaders("*")
+                        .exposedHeaders("Set-Cookie")
+                        .allowCredentials(true)
+                        .maxAge(3600);  // Cache preflight requests for 1 hour
             }
         };
     }
