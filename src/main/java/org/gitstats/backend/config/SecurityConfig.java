@@ -16,8 +16,6 @@ import org.springframework.security.oauth2.client.web.HttpSessionOAuth2Authoriza
 import org.springframework.security.web.util.matcher.AntPathRequestMatcher;
 import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
 import org.springframework.security.web.savedrequest.HttpSessionRequestCache;
-import org.springframework.security.web.cookie.CookieSerializer;
-import org.springframework.security.web.cookie.DefaultCookieSerializer;
 
 @Configuration
 @EnableWebSecurity
@@ -68,7 +66,7 @@ public class SecurityConfig {
                 )
                 .defaultSuccessUrl(frontendUrl, true)
             )
-            // Configure session management with secure cookie settings
+            // Configure session management
             .sessionManagement(session -> session
                 .sessionCreationPolicy(SessionCreationPolicy.ALWAYS)
                 .maximumSessions(1)
@@ -78,9 +76,9 @@ public class SecurityConfig {
             .requestCache(cache -> cache
                 .requestCache(new HttpSessionRequestCache())
             )
-            // Configure logout with secure cookie settings
+            // Configure logout
             .logout(logout -> logout
-                .logoutRequestMatcher(new AntPathRequestMatcher("/logout"))
+                .logoutRequestMatcher(new AntPathRequestMatcher("/api/logout"))
                 .logoutSuccessUrl(frontendUrl)
                 .invalidateHttpSession(true)
                 .clearAuthentication(true)
@@ -89,15 +87,6 @@ public class SecurityConfig {
             );
 
         return http.build();
-    }
-
-    @Bean
-    public CookieSerializer cookieSerializer() {
-        DefaultCookieSerializer serializer = new DefaultCookieSerializer();
-        serializer.setCookieName("JSESSIONID");
-        serializer.setSameSite("None");
-        serializer.setUseSecureCookie(true);
-        return serializer;
     }
 
     // We might need a CorsConfigurationSource bean later if the WebMvcConfigurer approach
