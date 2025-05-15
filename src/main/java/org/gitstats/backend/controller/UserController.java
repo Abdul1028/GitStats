@@ -164,5 +164,15 @@ public class UserController {
         }
     }
 
+    @GetMapping("/health-check")
+    public ResponseEntity<Map<String, String>> healthCheck() {
+        Map<String, String> response = Map.of(
+            "status", "UP",
+            "message", "API is running successfully",
+            "timestamp", java.time.LocalDateTime.now().toString()
+        );
+        return ResponseEntity.ok(response);
+    }
+
     // Add other endpoints as needed
 } 

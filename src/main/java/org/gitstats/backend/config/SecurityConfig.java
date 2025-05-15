@@ -29,6 +29,7 @@ public class SecurityConfig {
             .authorizeHttpRequests(authorize -> authorize
                 // Allow unauthenticated GET requests to public data endpoints
                 .requestMatchers(HttpMethod.GET,
+                    "/api/health-check",
                     "/api/users/{username}",
                     "/api/users/{username}/repos",
                     "/api/users/{username}/languages",
