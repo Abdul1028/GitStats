@@ -11,6 +11,8 @@ import org.springframework.security.config.annotation.web.configuration.EnableWe
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.HttpStatusEntryPoint;
+import org.springframework.security.config.http.SessionCreationPolicy;
+import org.springframework.security.oauth2.client.web.HttpSessionOAuth2AuthorizationRequestRepository;
 
 @Configuration
 @EnableWebSecurity
@@ -52,8 +54,17 @@ public class SecurityConfig {
             .oauth2Login(oauth2 -> oauth2
                 // Always redirect to the configured frontend app root on successful login
                 .defaultSuccessUrl(frontendUrl, true)
-                // We could add custom failure handler later if needed
-                // .failureUrl("/login?error")
+                // Add login page configuration
+                .loginPage("/oauth2/authorization/github")
+                // Add authorization request repository for storing the authorization request
+                .authorizationEndpoint(authorization -> authorization
+                    .authorizationRequestRepository(new HttpSessionOAuth2AuthorizationRequestRepository())
+                )
+            )
+            // Add session management
+            .sessionManagement(session -> session
+                .sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED)
+                .maximumSessions(1)
             )
             // --- Refined Logout Configuration --- 
             .logout(logout -> logout
