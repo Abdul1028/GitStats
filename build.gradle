@@ -41,3 +41,11 @@ dependencies {
 tasks.named('test') {
     useJUnitPlatform()
 }
+
+bootJar {
+    archiveFileName = 'gitstats-backend.jar'
+}
+
+jar {
+    enabled = false
+}

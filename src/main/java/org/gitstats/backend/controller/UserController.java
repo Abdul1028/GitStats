@@ -164,7 +164,7 @@ public class UserController {
         }
     }
 
-    @GetMapping("/health-check")
+        @GetMapping("/health-check")
     public ResponseEntity<Map<String, String>> healthCheck() {
         Map<String, String> response = Map.of(
             "status", "UP",
