@@ -13,8 +13,7 @@ import org.springframework.web.filter.ForwardedHeaderFilter;
 @Configuration
 public class WebConfig {
 
-    @Value("${app.cors.allowed-origins}")
-    private String allowedOrigins;
+
 
      @Bean
     public FilterRegistrationBean<ForwardedHeaderFilter> forwardedHeaderFilter() {
@@ -23,6 +22,9 @@ public class WebConfig {
         filterRegBean.setOrder(0);
         return filterRegBean;
     }
+
+    @Value("${app.cors.allowed-origins}")
+    private String allowedOrigins;
 
     @Bean
     public WebMvcConfigurer corsConfigurer() {  
