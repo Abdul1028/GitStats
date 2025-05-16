@@ -30,11 +30,12 @@ public class SecurityConfig {
             // Enable CORS configured in WebConfig
             .cors(withDefaults())
             // Configure CSRF with cookie-based token repository
-            .csrf(csrf -> csrf
-                .csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse())
-                .ignoringRequestMatchers("/api/health-check")
-            )
-            .authorizeHttpRequests(authorize -> authorize
+                .csrf(csrf -> csrf
+                        .csrfTokenRepository(csrfTokenRepository())
+                        .ignoringRequestMatchers("/api/health-check")
+                )
+
+                .authorizeHttpRequests(authorize -> authorize
                 // Allow unauthenticated GET requests to public data endpoints
                 .requestMatchers(HttpMethod.GET,
                     "/api/health-check",
@@ -88,6 +89,15 @@ public class SecurityConfig {
 
         return http.build();
     }
+
+
+    @Bean
+    public CookieCsrfTokenRepository csrfTokenRepository() {
+        CookieCsrfTokenRepository repo = CookieCsrfTokenRepository.withHttpOnlyFalse();
+        repo.setSecure(true); // 🔒 Important when using SameSite=None + HTTPS
+        return repo;
+    }
+
 
     // We might need a CorsConfigurationSource bean later if the WebMvcConfigurer approach
     // doesn't integrate perfectly with Spring Security's CORS handling, but let's try this first.
