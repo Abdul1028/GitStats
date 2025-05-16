@@ -10,3 +10,4 @@ public class CookieConfig {
         return CookieSameSiteSupplier.ofNone().whenHasName("JSESSIONID");
     }
 }
+
