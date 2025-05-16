@@ -32,9 +32,6 @@ import jakarta.servlet.http.HttpServletResponse;
 
 @Configuration
 public class WebConfig {
-
-
-
      @Bean
     public FilterRegistrationBean<ForwardedHeaderFilter> forwardedHeaderFilter() {
         FilterRegistrationBean<ForwardedHeaderFilter> filterRegBean = new FilterRegistrationBean<>();
@@ -61,35 +58,4 @@ public class WebConfig {
             }
         };
     }
-
-
-    @Bean
-    public FilterRegistrationBean<OncePerRequestFilter> sameSiteCookieFilter() {
-        FilterRegistrationBean<OncePerRequestFilter> registrationBean = new FilterRegistrationBean<>();
-
-        registrationBean.setFilter(new OncePerRequestFilter() {
-            @Override
-            protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
-                    throws ServletException, IOException {
-                filterChain.doFilter(request, response);
-                Collection<String> headers = response.getHeaders("Set-Cookie");
-                boolean firstHeader = true;
-                for (String header : headers) {
-                    if (header.startsWith("JSESSIONID")) {
-                        String newHeader = header + "; SameSite=None; Secure";
-                        if (firstHeader) {
-                            response.setHeader("Set-Cookie", newHeader);
-                            firstHeader = false;
-                        } else {
-                            response.addHeader("Set-Cookie", newHeader);
-                        }
-                    }
-                }
-            }
-        });
-
-        registrationBean.setOrder(1); // After ForwardedHeaderFilter
-        return registrationBean;
-    }
-
 }
