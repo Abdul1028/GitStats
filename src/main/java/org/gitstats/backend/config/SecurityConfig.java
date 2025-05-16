@@ -1,7 +1,5 @@
 package org.gitstats.backend.config;
 
-import org.gitstats.backend.security.JwtAuthenticationFilter;
-import org.gitstats.backend.security.OAuth2SuccessHandler;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -14,32 +12,30 @@ import org.springframework.security.config.annotation.web.configurers.AbstractHt
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.HttpStatusEntryPoint;
 import org.springframework.security.config.http.SessionCreationPolicy;
-import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.security.oauth2.client.web.HttpSessionOAuth2AuthorizationRequestRepository;
+import org.springframework.security.web.util.matcher.AntPathRequestMatcher;
+import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
+import org.springframework.security.web.savedrequest.HttpSessionRequestCache;
 
 @Configuration
 @EnableWebSecurity
 public class SecurityConfig {
 
-    private final JwtAuthenticationFilter jwtAuthFilter;
-    private final OAuth2SuccessHandler oauth2SuccessHandler;
-
     @Value("${app.frontend.url}")
     private String frontendUrl;
-
-    public SecurityConfig(JwtAuthenticationFilter jwtAuthFilter, OAuth2SuccessHandler oauth2SuccessHandler) {
-        this.jwtAuthFilter = jwtAuthFilter;
-        this.oauth2SuccessHandler = oauth2SuccessHandler;
-    }
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
             // Enable CORS configured in WebConfig
             .cors(withDefaults())
-            // Disable CSRF as we're using JWT
-            .csrf(AbstractHttpConfigurer::disable)
-            .authorizeHttpRequests(authorize -> authorize
+            // Configure CSRF with cookie-based token repository
+                .csrf(csrf -> csrf
+                        .csrfTokenRepository(csrfTokenRepository())
+                        .ignoringRequestMatchers("/api/health-check")
+                )
+
+                .authorizeHttpRequests(authorize -> authorize
                 // Allow unauthenticated GET requests to public data endpoints
                 .requestMatchers(HttpMethod.GET,
                     "/api/health-check",
@@ -61,7 +57,6 @@ public class SecurityConfig {
             .exceptionHandling(exceptions -> exceptions
                 .authenticationEntryPoint(new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED))
             )
-            // Configure OAuth2 login
             .oauth2Login(oauth2 -> oauth2
                 .authorizationEndpoint(authorization -> authorization
                     .baseUri("/oauth2/authorization")
@@ -70,15 +65,40 @@ public class SecurityConfig {
                 .redirectionEndpoint(redirection -> redirection
                     .baseUri("/login/oauth2/code/*")
                 )
-                .successHandler(oauth2SuccessHandler)
+                .defaultSuccessUrl(frontendUrl, true)
             )
-            // Configure session management to be stateless
+            // Configure session management
             .sessionManagement(session -> session
-                .sessionCreationPolicy(SessionCreationPolicy.STATELESS)
+                .sessionCreationPolicy(SessionCreationPolicy.ALWAYS)
+                .maximumSessions(1)
+                .expiredUrl(frontendUrl)
             )
-            // Add JWT filter
-            .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
+            // Configure request cache
+            .requestCache(cache -> cache
+                .requestCache(new HttpSessionRequestCache())
+            )
+            // Configure logout
+            .logout(logout -> logout
+                .logoutRequestMatcher(new AntPathRequestMatcher("/api/logout"))
+                .logoutSuccessUrl(frontendUrl)
+                .invalidateHttpSession(true)
+                .clearAuthentication(true)
+                .deleteCookies("JSESSIONID", "XSRF-TOKEN")
+                .permitAll()
+            );
 
         return http.build();
     }
+
+
+    @Bean
+    public CookieCsrfTokenRepository csrfTokenRepository() {
+        CookieCsrfTokenRepository repo = CookieCsrfTokenRepository.withHttpOnlyFalse();
+        repo.setSecure(true); // 🔒 Important when using SameSite=None + HTTPS
+        return repo;
+    }
+
+
+    // We might need a CorsConfigurationSource bean later if the WebMvcConfigurer approach
+    // doesn't integrate perfectly with Spring Security's CORS handling, but let's try this first.
 } 

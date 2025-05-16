@@ -49,11 +49,11 @@ public class WebConfig {
             @Override
             public void addCorsMappings(CorsRegistry registry) {
                 registry.addMapping("/**")
-                        .allowedOrigins(allowedOrigins.split(","))
+                        .allowedOrigins(allowedOrigins,"http://localhost:3000")
                         .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS")
-                        .allowedHeaders("Authorization", "Content-Type", "Accept")
-                        .exposedHeaders("Authorization")
-                        .allowCredentials(false)
+                        .allowedHeaders("*")
+                        .exposedHeaders("Set-Cookie", "XSRF-TOKEN")
+                        .allowCredentials(true)
                         .maxAge(3600);
             }
         };
