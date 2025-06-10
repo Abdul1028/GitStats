@@ -26,4 +26,8 @@ public class GitHubUserDTO {
     // Add other fields as needed from the plan.md (e.g., public_repos)
     // @JsonProperty("public_repos")
     // private int publicRepos;
+
+    public String getLogin() {
+        return this.login;
+    }
 } 

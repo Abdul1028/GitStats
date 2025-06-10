@@ -10,10 +10,10 @@ import org.gitstats.backend.service.GitHubService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.security.oauth2.core.user.OAuth2User;
+import org.springframework.http.converter.xml.SourceHttpMessageConverter;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.client.HttpClientErrorException;
@@ -29,84 +29,87 @@ public class UserController {
         this.gitHubService = gitHubService;
     }
 
+    // Helper method to extract token
+    private String extractToken(String authHeader) {
+        System.out.println("check");
+        if (authHeader != null && authHeader.startsWith("Bearer ")) {
+            System.out.println("Token extracted: " + authHeader.substring(7));
+            return authHeader.substring(7);
+
+        }
+        return null;
+    }
+
     @GetMapping("/user/me")
-    public ResponseEntity<?> getCurrentUser(@AuthenticationPrincipal OAuth2User principal) {
-        if (principal != null) {
-            String login = principal.getAttribute("login");
-            if (login == null) {
-                 return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Could not extract login from principal");
-            }
-            try {
-                // Fetch full user details using the GitHubService
-                GitHubUserDTO userInfo = gitHubService.getPublicUserInfo(login);
-                return ResponseEntity.ok(userInfo);
-            } catch (HttpClientErrorException.NotFound e) {
-                // Handle case where user might not be found via public API despite being authenticated
-                return ResponseEntity.status(HttpStatus.NOT_FOUND).body("GitHub user details not found for: " + login);
-            } catch (RuntimeException e) {
-                System.err.println("Error fetching authenticated user details: " + e.getMessage());
-                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Error fetching user data: " + e.getMessage());
-            }
-        } else {
-            // Consider returning UNAUTHORIZED if principal is null, though SecurityConfig might handle this
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("User not authenticated");
+    public ResponseEntity<?> getCurrentUser(@RequestHeader(value = "Authorization", required = false) String authHeader) {
+        System.out.println("hitt");
+        String token = extractToken(authHeader);
+        if (token == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Missing or invalid token");
+        }
+        try {
+            GitHubUserDTO userInfo = gitHubService.getAuthenticatedUserInfo(token);
+            return ResponseEntity.ok(userInfo);
+        } catch (HttpClientErrorException.Unauthorized e) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Invalid or expired token");
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Error fetching user data: " + e.getMessage());
         }
     }
 
     @GetMapping("/user/repos")
-    public ResponseEntity<?> getAuthenticatedUserRepos(@AuthenticationPrincipal OAuth2User principal) {
-        if (principal == null) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("User not authenticated");
+    public ResponseEntity<?> getAuthenticatedUserRepos(@RequestHeader(value = "Authorization", required = false) String authHeader) {
+        String token = extractToken(authHeader);
+        if (token == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Missing or invalid token");
         }
         try {
-            List<GitHubRepoDTO> repos = gitHubService.getAuthenticatedUserRepos();
+            List<GitHubRepoDTO> repos = gitHubService.getAuthenticatedUserRepos(token);
             return ResponseEntity.ok(repos);
-        } catch (RuntimeException e) {
-            System.err.println("Error fetching authenticated repos: " + e.getMessage());
+        } catch (Exception e) {
             return ResponseEntity.status(500).body("Error fetching repository data: " + e.getMessage());
         }
     }
 
     @GetMapping("/user/languages")
-    public ResponseEntity<?> getAuthenticatedUserLanguages(@AuthenticationPrincipal OAuth2User principal) {
-        if (principal == null) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("User not authenticated");
+    public ResponseEntity<?> getAuthenticatedUserLanguages(@RequestHeader(value = "Authorization", required = false) String authHeader) {
+        String token = extractToken(authHeader);
+        if (token == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Missing or invalid token");
         }
         try {
-            List<GitHubRepoDTO> repos = gitHubService.getAuthenticatedUserRepos();
+            List<GitHubRepoDTO> repos = gitHubService.getAuthenticatedUserRepos(token);
             Map<String, Long> languageStats = gitHubService.calculateLanguageStats(repos);
             return ResponseEntity.ok(languageStats);
-        } catch (RuntimeException e) {
-            System.err.println("Error fetching authenticated languages: " + e.getMessage());
+        } catch (Exception e) {
             return ResponseEntity.status(500).body("Error fetching language data: " + e.getMessage());
         }
     }
 
     @GetMapping("/user/events")
-    public ResponseEntity<?> getAuthenticatedUserEvents(@AuthenticationPrincipal OAuth2User principal) {
-        if (principal == null) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("User not authenticated");
+    public ResponseEntity<?> getAuthenticatedUserEvents(@RequestHeader(value = "Authorization", required = false) String authHeader) {
+        String token = extractToken(authHeader);
+        if (token == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Missing or invalid token");
         }
         try {
-            List<GitHubEventDTO> events = gitHubService.getAuthenticatedUserEvents();
+            List<GitHubEventDTO> events = gitHubService.getAuthenticatedUserEvents(token);
             return ResponseEntity.ok(events);
-        } catch (RuntimeException e) {
-            System.err.println("Error fetching authenticated events: " + e.getMessage());
+        } catch (Exception e) {
             return ResponseEntity.status(500).body("Error fetching event data: " + e.getMessage());
         }
     }
 
     @GetMapping("/user/contributions")
-    public ResponseEntity<?> getAuthenticatedUserContributions(@AuthenticationPrincipal OAuth2User principal) {
-        if (principal == null) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("User not authenticated");
+    public ResponseEntity<?> getAuthenticatedUserContributions(@RequestHeader(value = "Authorization", required = false) String authHeader) {
+        String token = extractToken(authHeader);
+        if (token == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Missing or invalid token");
         }
         try {
-            Object contributionData = gitHubService.getContributionData();
-            // We might need to map this Object to a specific DTO later
+            Object contributionData = gitHubService.getContributionData(token);
             return ResponseEntity.ok(contributionData);
-        } catch (RuntimeException e) {
-            System.err.println("Error fetching contribution data: " + e.getMessage());
+        } catch (Exception e) {
             return ResponseEntity.status(500).body("Error fetching contribution data: " + e.getMessage());
         }
     }
@@ -114,6 +117,7 @@ public class UserController {
     @GetMapping("/users/{username}")
     public ResponseEntity<?> getPublicUserInfo(@PathVariable String username) {
         try {
+            System.err.println("hit in");
             GitHubUserDTO userInfo = gitHubService.getPublicUserInfo(username);
             return ResponseEntity.ok(userInfo);
         } catch (HttpClientErrorException.NotFound e) {
@@ -164,7 +168,7 @@ public class UserController {
         }
     }
 
-        @GetMapping("/health-check")
+    @GetMapping("/health-check")
     public ResponseEntity<Map<String, String>> healthCheck() {
         Map<String, String> response = Map.of(
             "status", "UP",

@@ -32,4 +32,8 @@ public class GitHubRepoDTO {
     // private OffsetDateTime updatedAt;
     // @JsonProperty("pushed_at")
     // private OffsetDateTime pushedAt;
+
+    public String getLanguage() {
+        return this.language;
+    }
 } 

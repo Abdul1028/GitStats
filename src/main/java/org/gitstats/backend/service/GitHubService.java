@@ -7,10 +7,6 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClient;
 import org.springframework.core.ParameterizedTypeReference;
-import org.springframework.security.oauth2.client.OAuth2AuthorizedClientService;
-import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.security.oauth2.client.authentication.OAuth2AuthenticationToken;
-import org.springframework.security.oauth2.client.OAuth2AuthorizedClient;
 import org.springframework.graphql.client.HttpGraphQlClient;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
@@ -23,39 +19,17 @@ import java.util.function.Function;
 public class GitHubService {
 
     private final RestClient restClient;
-    private final OAuth2AuthorizedClientService authorizedClientService;
     private final HttpGraphQlClient graphQlClient;
 
     @Value("${github.api.base-url:https://api.github.com}")
     private String githubApiBaseUrl;
 
     public GitHubService(
-        RestClient.Builder restClientBuilder, 
-        OAuth2AuthorizedClientService authorizedClientService,
+        RestClient.Builder restClientBuilder,
         HttpGraphQlClient graphQlClient
     ) {
         this.restClient = restClientBuilder.build();
-        this.authorizedClientService = authorizedClientService;
         this.graphQlClient = graphQlClient;
-    }
-
-    private OAuth2AuthenticationToken getAuthenticationToken() {
-        return (OAuth2AuthenticationToken) SecurityContextHolder.getContext().getAuthentication();
-    }
-    
-    private String getAccessToken() {
-        OAuth2AuthenticationToken authentication = getAuthenticationToken();
-        if (authentication == null) {
-            throw new IllegalStateException("User not authenticated");
-        }
-        OAuth2AuthorizedClient client = authorizedClientService.loadAuthorizedClient(
-                authentication.getAuthorizedClientRegistrationId(), 
-                authentication.getName()
-        );
-        if (client == null || client.getAccessToken() == null) {
-            throw new IllegalStateException("Could not find OAuth2 access token");
-        }
-        return client.getAccessToken().getTokenValue();
     }
 
     public GitHubUserDTO getPublicUserInfo(String username) {
@@ -128,74 +102,89 @@ public class GitHubService {
         return calculateLanguageStats(repos);
     }
 
-    public List<GitHubRepoDTO> getAuthenticatedUserRepos() {
-        String url = githubApiBaseUrl + "/user/repos?per_page=100&affiliation=owner,collaborator"; // Fetch owned and collaborated repos
-        String token = getAccessToken();
+    public GitHubUserDTO getAuthenticatedUserInfo(String token) {
+        String url = githubApiBaseUrl + "/user";
+        try {
+            return restClient.get()
+                    .uri(url)
+                    .header("Authorization", "Bearer " + token)
+                    .header("User-Agent", "GitStatsApp")
+                    .retrieve()
+                    .body(GitHubUserDTO.class);
+        } catch (Exception e) {
+            e.printStackTrace();
+            System.err.println("Error fetching authenticated user info: " + e.getMessage());
+            throw new RuntimeException("Failed to fetch authenticated user info from GitHub", e);
+        }
+    }
 
+    public List<GitHubRepoDTO> getAuthenticatedUserRepos(String token) {
+        String url = githubApiBaseUrl + "/user/repos?per_page=100&affiliation=owner,collaborator";
         try {
             List<GitHubRepoDTO> repos = restClient.get()
                     .uri(url)
                     .header("Authorization", "Bearer " + token)
+                    .header("User-Agent", "GitStatsApp")
                     .retrieve()
                     .body(new ParameterizedTypeReference<List<GitHubRepoDTO>>() {});
             return repos != null ? repos : List.of();
         } catch (Exception e) {
+            e.printStackTrace();
             System.err.println("Error fetching authenticated user repos: " + e.getMessage());
             throw new RuntimeException("Failed to fetch authenticated user repos from GitHub", e);
         }
     }
 
-    // New method for authenticated user events
-    public List<GitHubEventDTO> getAuthenticatedUserEvents() {
-        OAuth2AuthenticationToken authentication = getAuthenticationToken();
-        String username = authentication.getPrincipal().getAttribute("login"); // Get username from token
+    public List<GitHubEventDTO> getAuthenticatedUserEvents(String token) {
+        GitHubUserDTO user = getAuthenticatedUserInfo(token);
+        String username = user.getLogin();
         if (username == null) {
-             throw new IllegalStateException("Could not extract username from authenticated principal");
+            throw new IllegalStateException("Could not extract username from authenticated user info");
         }
-        // Note: This endpoint might require specific scopes depending on event types needed.
-        String url = githubApiBaseUrl + "/users/" + username + "/events?per_page=100"; 
-        String token = getAccessToken();
-        
+        String url = githubApiBaseUrl + "/users/" + username + "/events?per_page=100";
         try {
             List<GitHubEventDTO> events = restClient.get()
                     .uri(url)
                     .header("Authorization", "Bearer " + token)
+                    .header("User-Agent", "GitStatsApp")
                     .retrieve()
                     .body(new ParameterizedTypeReference<List<GitHubEventDTO>>() {});
             return events != null ? events : List.of();
         } catch (Exception e) {
+            e.printStackTrace();
             System.err.println("Error fetching authenticated user events: " + e.getMessage());
             throw new RuntimeException("Failed to fetch authenticated user events from GitHub", e);
         }
     }
 
-    // --- GraphQL Methods --- 
-    public Object getContributionData() { // Return type will be refined based on response structure
-        OAuth2AuthenticationToken authentication = getAuthenticationToken();
-        String username = authentication.getPrincipal().getAttribute("login");
-        String token = getAccessToken();
-
-        // Define time range (e.g., last 365 days)
+    public Object getContributionData(String token) {
+        GitHubUserDTO user = getAuthenticatedUserInfo(token);
+        String username = user.getLogin();
+        if (username == null) {
+            throw new IllegalStateException("Could not extract username from authenticated user info");
+        }
         OffsetDateTime to = OffsetDateTime.now(ZoneOffset.UTC);
         OffsetDateTime from = to.minusDays(365);
-
-        // Variables for the GraphQL query
         Map<String, Object> variables = Map.of(
             "username", username,
             "from", from.toString(),
             "to", to.toString()
         );
-
-        // Execute the GraphQL query defined in contributions.graphql
-        // Add Authorization header dynamically
-        return graphQlClient
-                .mutate()
-                .header("Authorization", "Bearer " + token)
-                .build()
-                .documentName("contributions") // Refers to contributions.graphql
-                .variables(variables)
-                .retrieve("user.contributionsCollection") // Path to the desired data
-                .toEntity(Object.class) // Use a specific DTO later
-                .block(); // Use block() for simplicity, consider reactive approach later
+        try {
+            return graphQlClient
+                    .mutate()
+                    .header("Authorization", "Bearer " + token)
+                    .header("User-Agent", "GitStatsApp")
+                    .build()
+                    .documentName("contributions")
+                    .variables(variables)
+                    .retrieve("user.contributionsCollection")
+                    .toEntity(Object.class)
+                    .block();
+        } catch (Exception e) {
+            e.printStackTrace();
+            System.err.println("Error fetching contribution data: " + e.getMessage());
+            throw new RuntimeException("Failed to fetch contribution data from GitHub", e);
+        }
     }
 } 
